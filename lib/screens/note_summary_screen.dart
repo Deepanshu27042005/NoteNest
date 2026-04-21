@@ -24,7 +24,7 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -54,13 +54,15 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
         note.aiFormulas = List<String>.from(revision['formulas'] ?? []);
         note.aiKeywords = List<String>.from(revision['keywords'] ?? []);
         note.aiDefinitions = List<String>.from(revision['definitions'] ?? []);
+        note.aiShortQuestions = List<String>.from(revision['shortQuestions'] ?? []);
+        note.aiLongQuestions = List<String>.from(revision['longQuestions'] ?? []);
         note.aiGeneratedAt = DateTime.now();
 
         await context.read<NoteProvider>().updateNote(note);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Smart Revision Generated!')),
+            const SnackBar(content: Text('Assessment & Guide Generated!')),
           );
           _tabController.animateTo(0);
         }
@@ -92,7 +94,7 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              maxLines: 5,
+              maxLines: 8,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Colors.grey.shade100,
@@ -125,23 +127,24 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
     final hasAiData = note.aiSummary != null;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF00695C)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1D1D1D)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           note.title,
-          style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Color(0xFF1D1D1D), fontSize: 18, fontWeight: FontWeight.bold),
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
           if (hasAiData)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Color(0xFF00695C)),
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF00695C)),
               onPressed: _isGenerating ? null : _generateSmartRevision,
             ),
           const SizedBox(width: 8),
@@ -153,10 +156,14 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
                 labelColor: const Color(0xFF00695C),
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: const Color(0xFF00695C),
+                indicatorWeight: 4,
+                indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 tabs: const [
                   Tab(text: 'Summary'),
                   Tab(text: 'Key Points'),
                   Tab(text: 'Formulas'),
+                  Tab(text: 'Questions'),
                   Tab(text: 'Keywords'),
                   Tab(text: 'Definitions'),
                 ],
@@ -164,69 +171,37 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
             : null,
       ),
       body: _isGenerating
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Color(0xFF00695C)),
-                  SizedBox(height: 16),
-                  Text("Building your textbook guide...", style: TextStyle(color: Colors.grey)),
+                  const CircularProgressIndicator(color: Color(0xFF00695C)),
+                  const SizedBox(height: 24),
+                  Text(
+                    "Building your study guide...",
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
                 ],
               ),
             )
           : !hasAiData
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.auto_awesome_outlined, size: 80, color: Colors.grey),
-                      const SizedBox(height: 24),
-                      const Text(
-                        "No smart revision yet.",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Transform your notes into a\ndetailed topic-wise guide.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: _generateSmartRevision,
-                        icon: const Icon(Icons.auto_awesome),
-                        label: const Text("Generate Smart Revision"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00695C),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+              ? _buildGenerateView()
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    // Tab 1: Summary with Pictures
                     _buildSummaryTab(note),
-
-                    // Tab 2: Key Points
                     _buildAiListTab(
-                      title: 'Detailed Takeaways',
+                      title: 'Key Takeaways',
                       items: note.aiKeyPoints,
-                      icon: Icons.tips_and_updates_outlined,
+                      icon: Icons.lightbulb_outline_rounded,
                       onEdit: () => _editSection("Key Points", note.aiKeyPoints?.join("\n"), (val) async {
                         note.aiKeyPoints = val.split("\n").where((e) => e.trim().isNotEmpty).toList();
                         await context.read<NoteProvider>().updateNote(note);
                         setState(() {});
                       }),
                     ),
-
-                    // Tab 3: Formulas
                     _buildAiFormulaTab(
-                      title: 'Key Formulas & Logic',
+                      title: 'Formulas & Logic',
                       items: note.aiFormulas,
                       onEdit: () => _editSection("Formulas", note.aiFormulas?.join("\n"), (val) async {
                         note.aiFormulas = val.split("\n").where((e) => e.trim().isNotEmpty).toList();
@@ -234,8 +209,7 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
                         setState(() {});
                       }),
                     ),
-
-                    // Tab 4: Keywords
+                    _buildQuestionsTab(note),
                     _buildAiChipTab(
                       title: 'Core Concepts',
                       items: note.aiKeywords,
@@ -245,8 +219,6 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
                         setState(() {});
                       }),
                     ),
-
-                    // Tab 5: Definitions
                     _buildAiListTab(
                       title: 'Academic Glossary',
                       items: note.aiDefinitions,
@@ -262,63 +234,210 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
     );
   }
 
+  Widget _buildGenerateView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(color: Colors.teal.shade50, shape: BoxShape.circle),
+              child: const Icon(Icons.auto_awesome_rounded, size: 64, color: Color(0xFF00695C)),
+            ),
+            const SizedBox(height: 32),
+            const Text("Transform Your Notes", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text(
+              "Let NoteNest AI analyze your notes to generate topic-wise summaries, formulas, and test questions.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity, height: 56,
+              child: ElevatedButton.icon(
+                onPressed: _generateSmartRevision,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text("Generate Smart Revision", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00695C),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryTab(Note note) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Topic Header Image (Dynamic from Unsplash based on Subject)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Image.network(
-              'https://source.unsplash.com/featured/?${note.subject},education,study',
-              height: 180,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                height: 180,
-                color: Colors.teal.shade50,
-                child: const Icon(Icons.menu_book, size: 50, color: Color(0xFF00695C)),
+          // Elegant Header Card (Replaced unstable image with modern gradient card)
+          Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF00695C), Color(0xFF004D40)],
               ),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 25, offset: const Offset(0, 10))],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -30, top: -30,
+                  child: Icon(Icons.auto_awesome, size: 180, color: Colors.white.withOpacity(0.08)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                        child: Text(note.subject.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text("In-Depth Study Guide", style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
+          
           _buildSectionHeader('Topic-Wise Analysis', onEdit: () => _editSection("Summary", note.aiSummary, (val) async {
             note.aiSummary = val;
             await context.read<NoteProvider>().updateNote(note);
             setState(() {});
           })),
-          const SizedBox(height: 16),
-          
-          // 2. The Detailed AI Summary
-          Text(
-            note.aiSummary ?? '',
-            style: const TextStyle(fontSize: 16, height: 1.7, color: Colors.black87),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-          // 3. Visual Context (The original Scan)
-          const Text('Original Scan Context', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 12),
-          if (note.fileType == 'image')
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.file(File(note.filePath), height: 300, width: double.infinity, fit: BoxFit.contain),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
-              child: const Row(
-                children: [
-                  Icon(Icons.picture_as_pdf, color: Colors.red),
-                  SizedBox(width: 12),
-                  Text('View PDF context in Document tab'),
-                ],
-              ),
+          // High-Quality Summary Container
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5))],
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _parseSummary(note.aiSummary ?? ''),
+            ),
+          ),
+          
           const SizedBox(height: 40),
+          const Text('Reference Metadata', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1D1D1D))),
+          const SizedBox(height: 16),
+          _buildSourceContext(note),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _parseSummary(String text) {
+    List<Widget> widgets = [];
+    final lines = text.split('\n');
+    for (var line in lines) {
+      String trimmed = line.trim();
+      if (trimmed.startsWith('##')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 28, bottom: 12),
+          child: Row(
+            children: [
+              Container(width: 4, height: 20, decoration: BoxDecoration(color: const Color(0xFF00695C), borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 12),
+              Expanded(child: Text(trimmed.replaceAll('##', '').trim(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF00695C)))),
+            ],
+          ),
+        ));
+      } else if (trimmed.isNotEmpty) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(trimmed, style: const TextStyle(fontSize: 15, height: 1.8, color: Color(0xFF37474F), letterSpacing: 0.1)),
+        ));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _buildSourceContext(Note note) {
+    if (note.fileType == 'image') {
+      return ClipRRect(borderRadius: BorderRadius.circular(20), child: Image.file(File(note.filePath), width: double.infinity, fit: BoxFit.fitWidth));
+    }
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
+      child: const Row(children: [Icon(Icons.description_rounded, color: Color(0xFF00695C), size: 36), SizedBox(width: 16), Text("Source: Academic PDF Document", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 15))]),
+    );
+  }
+
+  Widget _buildQuestionsTab(Note note) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('Practice Questions', onEdit: () => _editSection("Short Questions", note.aiShortQuestions?.join("\n"), (val) async {
+            note.aiShortQuestions = val.split("\n").where((e) => e.trim().isNotEmpty).toList();
+            await context.read<NoteProvider>().updateNote(note);
+            setState(() {});
+          })),
+          const SizedBox(height: 24),
+          if (note.aiShortQuestions != null)
+            ...note.aiShortQuestions!.asMap().entries.map((entry) => _buildQuestionCard(entry.key + 1, entry.value, const Color(0xFFE0F2F1), 'SHORT')),
+          
+          const SizedBox(height: 32),
+          _buildSectionHeader('Descriptive Study', onEdit: () => _editSection("Long Questions", note.aiLongQuestions?.join("\n"), (val) async {
+            note.aiLongQuestions = val.split("\n").where((e) => e.trim().isNotEmpty).toList();
+            await context.read<NoteProvider>().updateNote(note);
+            setState(() {});
+          })),
+          const SizedBox(height: 24),
+          if (note.aiLongQuestions != null)
+            ...note.aiLongQuestions!.asMap().entries.map((entry) => _buildQuestionCard(entry.key + 1, entry.value, const Color(0xFFFFF3E0), 'LONG')),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(int index, String question, Color color, String tag) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(width: 32, height: 32, alignment: Alignment.center, decoration: BoxDecoration(color: color, shape: BoxShape.circle), child: Text(index.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF004D40)))),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6)), child: Text(tag, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey.shade400, letterSpacing: 0.5))),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(question, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.5, color: Color(0xFF263238))),
         ],
       ),
     );
@@ -326,24 +445,26 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
 
   Widget _buildAiListTab({required String title, List<String>? items, IconData icon = Icons.check_circle_outline, VoidCallback? onEdit}) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(title, onEdit: onEdit),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           if (items != null)
-            ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(icon, size: 20, color: const Color(0xFF00695C)),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(item, style: const TextStyle(fontSize: 16, height: 1.4))),
-                    ],
-                  ),
-                )),
+            ...items.map((item) => Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 22, color: const Color(0xFF00695C)),
+                  const SizedBox(width: 18),
+                  Expanded(child: Text(item, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF455A64)))),
+                ],
+              ),
+            )),
         ],
       ),
     );
@@ -351,39 +472,18 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
 
   Widget _buildAiFormulaTab({required String title, List<String>? items, VoidCallback? onEdit}) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(title, onEdit: onEdit),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           if (items != null && items.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFFF5F7F8), borderRadius: BorderRadius.circular(24)),
-              child: Column(
-                children: items
-                    .map((f) => Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white, 
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.functions, color: Colors.blue, size: 22),
-                              const SizedBox(width: 12),
-                              Expanded(child: Text(f, style: const TextStyle(fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.bold))),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-              ),
-            )
+            ...items.map((f) => Container(
+              width: double.infinity, margin: const EdgeInsets.only(bottom: 18), padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(color: const Color(0xFF212121), borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))]),
+              child: Row(children: [const Icon(Icons.functions_rounded, color: Color(0xFF80DEEA), size: 30), const SizedBox(width: 20), Expanded(child: Text(f, style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)))]),
+            )).toList()
           else
             const Center(child: Text('No formulas detected.', style: TextStyle(color: Colors.grey))),
         ],
@@ -393,18 +493,13 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
 
   Widget _buildAiChipTab({required String title, List<String>? items, VoidCallback? onEdit}) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(title, onEdit: onEdit),
-          const SizedBox(height: 16),
-          if (items != null)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: items.map((tag) => _buildChip(tag)).toList(),
-            ),
+          const SizedBox(height: 24),
+          if (items != null) Wrap(spacing: 14, runSpacing: 14, children: items.map((tag) => _buildChip(tag)).toList()),
         ],
       ),
     );
@@ -414,21 +509,17 @@ class _NoteSummaryScreenState extends State<NoteSummaryScreen> with SingleTicker
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-        if (onEdit != null) IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.grey), onPressed: onEdit),
+        Row(children: [Container(width: 6, height: 30, decoration: BoxDecoration(color: const Color(0xFF00695C), borderRadius: BorderRadius.circular(4))), const SizedBox(width: 16), Text(title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1D1D1D), letterSpacing: -0.5))]),
+        if (onEdit != null) IconButton(icon: const Icon(Icons.edit_rounded, size: 24, color: Colors.grey), onPressed: onEdit),
       ],
     );
   }
 
   Widget _buildChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.teal.shade50, 
-        borderRadius: BorderRadius.circular(12), 
-        border: Border.all(color: Colors.teal.shade100),
-      ),
-      child: Text("#$label", style: const TextStyle(fontSize: 13, color: Color(0xFF00695C), fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF00695C).withOpacity(0.4)), boxShadow: [BoxShadow(color: const Color(0xFF00695C).withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))]),
+      child: Text("#$label", style: const TextStyle(fontSize: 15, color: Color(0xFF00695C), fontWeight: FontWeight.bold)),
     );
   }
 }

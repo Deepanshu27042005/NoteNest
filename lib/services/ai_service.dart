@@ -3,24 +3,43 @@ import 'package:http/http.dart' as http;
 
 class AiService {
   // Free API Key from https://console.groq.com/keys
-  static const String _apiKey = "MY API Key";
+  static const String _apiKey = "API_KEY";
 
   Future<Map<String, dynamic>?> getSmartRevision(String text) async {
     final url = Uri.parse("https://api.groq.com/openai/v1/chat/completions");
 
+    // Safety: Stay within free tier token limits
+    String safeText = text;
+    if (text.length > 4000) {
+      safeText = text.substring(0, 4000) + "... [Text truncated]";
+    }
+
     try {
       final prompt = '''
-        You are a Master Academic Professor. Your task is to transform raw study notes into a comprehensive, high-level educational guide.
+        You are an Elite Academic Professor. Analyze the provided study notes and return a highly detailed topic-wise structured JSON response.
         
-        Notes content: "$text"
+        Notes content: "$safeText"
         
-        Analyze the text deeply and provide a response in the following JSON format:
+        REQUIREMENTS:
+        1. "summary": This MUST be a single STRING. Identify major topics and use "## TOPIC NAME" headings INSIDE the string. Explain each topic in depth.
+        2. "keyPoints": List of at least 7 detailed takeaway points.
+        3. "formulas": List of formulas with explanations.
+        4. "keywords": List of technical terms.
+        5. "definitions": List of "Term: Definition" strings.
+        6. "shortQuestions": Exactly 10 short-answer questions.
+        7. "longQuestions": Exactly 5 in-depth long-answer questions.
+
+        CRITICAL: The "summary" field value must be a STRING, not an object.
+        
+        JSON STRUCTURE EXAMPLE:
         {
-          "summary": "A comprehensive topic-wise guide. Identify EVERY major sub-topic in the notes. For each sub-topic, provide a clear heading (e.g., ## TOPIC NAME) followed by a paragraph explaining the core concepts, theories, and logic in exhaustive detail. Do not be brief; explain as if you are writing a textbook chapter.",
-          "keyPoints": ["Extremely detailed takeaway 1 with sub-context", "Extremely detailed takeaway 2 with sub-context", "Ensure every important fact is captured here as a detailed point."],
-          "formulas": ["List every single formula found. Format: 'Formula Name: [Formula] - Explanation of variables'"],
-          "keywords": ["Technical terms", "Theories", "Historical figures", "Specific jargon"],
-          "definitions": ["Concept Name: A detailed academic definition with a use-case or example if possible"]
+          "summary": "## Topic 1\\nContent here...\\n\\n## Topic 2\\nContent here...",
+          "keyPoints": ["..."],
+          "formulas": ["..."],
+          "keywords": ["..."],
+          "definitions": ["..."],
+          "shortQuestions": ["..."],
+          "longQuestions": ["..."]
         }
       ''';
 
@@ -31,11 +50,11 @@ class AiService {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          "model": "llama-3.3-70b-versatile",
+          "model": "llama-3.1-8b-instant",
           "messages": [
             {
               "role": "system",
-              "content": "You are a specialized academic summarizer. You convert messy notes into structured, exhaustive, topic-by-topic educational guides. You always output valid JSON."
+              "content": "You are a professional academic assistant. You only output valid JSON. You never wrap the 'summary' content in a nested object; it is always a single string."
             },
             {
               "role": "user",
@@ -43,7 +62,7 @@ class AiService {
             }
           ],
           "response_format": {"type": "json_object"},
-          "temperature": 0.5 // Higher temperature for more expressive, detailed explanations
+          "temperature": 0.2 // Very low temperature for high structure consistency
         }),
       );
 

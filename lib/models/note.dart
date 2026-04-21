@@ -54,6 +54,14 @@ class Note extends HiveObject {
   @HiveField(15)
   DateTime? aiGeneratedAt;
 
+  // --- FIELDS FOR QUESTION GENERATION ---
+
+  @HiveField(16)
+  List<String>? aiShortQuestions;
+
+  @HiveField(17)
+  List<String>? aiLongQuestions;
+
   Note({
     required this.id,
     required this.title,
@@ -71,5 +79,7 @@ class Note extends HiveObject {
     this.aiKeywords,
     this.aiDefinitions,
     this.aiGeneratedAt,
+    this.aiShortQuestions,
+    this.aiLongQuestions,
   });
 }
